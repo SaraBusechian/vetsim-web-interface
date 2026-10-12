@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VetSim - Scenario Builder</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --bg-color: #ecf0f1;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --purple: #8e44ad;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text); margin: 0; padding: 20px; line-height: 1.6; }
+        header { background-color: var(--primary); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        h1 { margin: 0; font-size: 1.8rem; }
+        p.subtitle { margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.8; }
+        
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        @media (max-width: 1000px) { .container { grid-template-columns: 1fr; } }
+        
+        .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; font-size: 1.2rem; display: flex; align-items: center; justify-content: space-between; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; color: #555; }
+        input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 80px; }
+        
+        button { background-color: var(--secondary); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: #2980b9; }
+        button.add-btn { background-color: var(--success); font-size: 0.85rem; margin-top: 10px; }
+        button.add-btn:hover { background-color: #27ae60; }
+        button.remove-btn { background-color: var(--danger); padding: 5px 10px; font-size: 0.8rem; margin-top: 10px; }
+        
+        .dynamic-item { background-color: #f8f9fa; border-left: 4px solid var(--secondary); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+        .dynamic-item.fluid-item { border-left-color: var(--secondary); }
+        .dynamic-item.drug-item { border-left-color: var(--success); }
+        .dynamic-item.other-item { border-left-color: var(--purple); }
+        .dynamic-item.rule-item { border-left-color: var(--danger); background-color: #fff5f5; }
+        
+        #json-output { width: 100%; height: 600px; background-color: #2c3e50; color: #64ffda; font-family: monospace; padding: 15px; border-radius: 4px; border: none; box-sizing: border-box; font-size: 0.9rem; white-space: pre; overflow-x: auto; }
+        .export-panel { position: sticky; top: 20px; }
+        
+        .help-text { font-size: 0.8rem; color: #7f8c8d; margin-top: 2px; display: block; }
+        .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>VetSim Scenario Builder</h1>
+        <p class="subtitle">Fill in the clinical data. The JSON code is generated automatically for the App.</p>
+    </header>
+
+    <div class="container">
+        <!-- LEFT PANEL: VISUAL FORM -->
+        <div class="editor-panel">
+            
+            <div class="card">
+                <h2>1. Patient & History</h2>
+                <div class="form-group">
+                    <label>Patient Name</label>
+                    <input type="text" id="patient-name" placeholder="e.g., Furia" onkeyup="generateJSON()">
+                </div>
+                <div class="form-group">
+                    <label>Signalment</label>
+                    <input type="text" id="patient-signalment" placeholder="e.g., Warmblood, Mare, 12yo, 500kg" onkeyup="generateJSON()">
+                </div>
+                <div class="form-group">
+                    <label>Admission History</label>
+                    <textarea id="patient-history" placeholder="e.g., Referred for acute colic signs started 4 hours ago..." onkeyup="generateJSON()"></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>2. Diagnostics & Labs (Reports)</h2>
+                <p class="help-text">Add exams students can request and the resulting report (text or image).</p>
+                <div id="exams-container"></div>
+                <button class="add-btn" onclick="addExam()">+ Add Exam / Lab</button>
+            </div>
+
+            <div class="card">
+                <h2>3. Fluids & Medications</h2>
+                <p class="help-text">Define the therapeutic buttons available on the tablet.</p>
+                
+                <h3 style="font-size: 1rem; color: var(--secondary); margin-top: 20px;">💧 Fluidotherapy</h3>
+                <div id="fluids-container"></div>
+                <button class="add-btn" style="background-color: var(--secondary);" onclick="addFluid()">+ Add Fluid</button>
+
+                <h3 style="font-size: 1rem; color: var(--success); margin-top: 30px;">💊 Medications</h3>
+                <div id="drugs-container"></div>
+                <button class="add-btn" onclick="addDrug()">+ Add Medication</button>
+            </div>
+
+            <div class="card">
+                <h2>4. Other Actions</h2>
+                <p class="help-text">Custom actions like surgeries, physical exams, or interventions.</p>
+                <div id="others-container"></div>
+                <button class="add-btn" style="background-color: var(--purple);" onclick="addOther()">+ Add Custom Action</button>
+            </div>
+
+            <div class="card">
+                <h2>5. Fatal Errors & Rules (Decision Trees)</h2>
+                <p class="help-text">Define consequences for wrong sequences (e.g., Surgery before Fluids = Error).</p>
+                <div id="rules-container"></div>
+                <button class="add-btn" style="background-color: var(--danger);" onclick="addRule()">+ Add Fatal Rule</button>
+            </div>
+
+            <div class="card">
+                <h2>6. Winning Condition</h2>
+                <p class="help-text">What must the student do to successfully complete the scenario?</p>
+                <div class="form-group">
+                    <label>Required Actions (Comma separated IDs)</label>
+                    <input type="text" id="win-actions" placeholder="e.g., ringer, dobutamine, surgery" onkeyup="generateJSON()">
+                </div>
+                <div class="form-group">
+                    <label>Success Message</label>
+                    <textarea id="win-message" placeholder="e.g., Congratulations! Patient stabilized and ready for surgery." onkeyup="generateJSON()"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT PANEL: JSON EXPORT -->
+        <div class="export-panel">
+            <div class="card">
+                <h2>📁 Generated JSON Scenario</h2>
+                <p class="help-text" style="margin-bottom: 10px;">This code is ready for the VetSim WebApp. Download and share.</p>
+                <textarea id="json-output" readonly></textarea>
+                <button style="width: 100%; margin-top: 15px; background-color: var(--success); font-size: 1.1rem; padding: 15px;" onclick="downloadJSON()">
+                    ⬇️ Download Scenario (.json)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            exams: [], fluids: [], drugs: [], others: [], rules: []
+        };
+
+        window.onload = () => {
+            addExam(); addFluid(); addDrug(); addRule(); generateJSON();
+        };
+
+        function createButtonForm(item, type, containerId, borderClass, labelText) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `dynamic-item ${borderClass}`;
+            div.innerHTML = `
+                <div class="inline-grid">
+                    <div class="form-group">
+                        <label>Action ID <span class="help-text">e.g., '${type}_1' (No spaces)</span></label>
+                        <input type="text" value="${item.idStr}" onkeyup="updateItem('${type}', ${item.id}, 'idStr', this.value)" placeholder="e.g., ringer">
+                    </div>
+                    <div class="form-group">
+                        <label>Button Label</label>
+                        <input type="text" value="${item.name}" onkeyup="updateItem('${type}', ${item.id}, 'name', this.value)" placeholder="e.g., Ringer Lactate 5L">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Log Text <span class="help-text">Text shown in the medical log when clicked</span></label>
+                    <input type="text" value="${item.log}" onkeyup="updateItem('${type}', ${item.id}, 'log', this.value)" placeholder="e.g., Administered 5L of Ringer Lactate">
+                </div>
+                <button class="remove-btn" onclick="removeItem('${type}', ${item.id})">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function updateItem(type, id, field, value) {
+            const item = state[type].find(i => i.id === id);
+            if (item) item[field] = value;
+            generateJSON();
+        }
+
+        function removeItem(type, id) {
+            state[type] = state[type].filter(i => i.id !== id);
+            renderAll(); generateJSON();
+        }
+
+        function addFluid() { state.fluids.push({ id: Date.now(), idStr: '', name: '', log: '' }); renderAll(); }
+        function addDrug() { state.drugs.push({ id: Date.now(), idStr: '', name: '', log: '' }); renderAll(); }
+        function addOther() { state.others.push({ id: Date.now(), idStr: '', name: '', log: '' }); renderAll(); }
+        function addExam() { state.exams.push({ id: Date.now(), idStr: '', name: '', log: '', content: '' }); renderAll(); }
+        function addRule() { state.rules.push({ id: Date.now(), trigger: '', required: '', message: '' }); renderAll(); }
+
+        function renderAll() {
+            const examsC = document.getElementById('exams-container');
+            examsC.innerHTML = '';
+            state.exams.forEach(ex => {
+                const div = document.createElement('div');
+                div.className = 'dynamic-item';
+                div.innerHTML = `
+                    <div class="inline-grid">
+                        <div class="form-group">
+                            <label>Action ID <span class="help-text">e.g., 'us_abdomen'</span></label>
+                            <input type="text" value="${ex.idStr}" onkeyup="updateItem('exams', ${ex.id}, 'idStr', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>Button Label</label>
+                            <input type="text" value="${ex.name}" onkeyup="updateItem('exams', ${ex.id}, 'name', this.value)" placeholder="e.g., TFAST Ultrasound">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Report Content / Image Link</label>
+                        <textarea onkeyup="updateItem('exams', ${ex.id}, 'content', this.value)" placeholder="e.g., Fluid detected... or <img src='images/eco.jpg'>">${ex.content}</textarea>
+                    </div>
+                    <button class="remove-btn" onclick="removeItem('exams', ${ex.id})">Remove Exam</button>
+                `;
+                examsC.appendChild(div);
+            });
+
+            document.getElementById('fluids-container').innerHTML = '';
+            state.fluids.forEach(f => createButtonForm(f, 'fluids', 'fluids-container', 'fluid-item', 'Fluid'));
+            document.getElementById('drugs-container').innerHTML = '';
+            state.drugs.forEach(d => createButtonForm(d, 'drugs', 'drugs-container', 'drug-item', 'Drug'));
+            document.getElementById('others-container').innerHTML = '';
+            state.others.forEach(o => createButtonForm(o, 'others', 'others-container', 'other-item', 'Action'));
+
+            const rulesC = document.getElementById('rules-container');
+            rulesC.innerHTML = '';
+            state.rules.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'dynamic-item rule-item';
+                div.innerHTML = `
+                    <div class="inline-grid">
+                        <div class="form-group">
+                            <label>If student triggers Action ID...</label>
+                            <input type="text" value="${r.trigger}" onkeyup="updateItem('rules', ${r.id}, 'trigger', this.value)" placeholder="e.g., surgery">
+                        </div>
+                        <div class="form-group">
+                            <label>...WITHOUT doing Action ID...</label>
+                            <input type="text" value="${r.required}" onkeyup="updateItem('rules', ${r.id}, 'required', this.value)" placeholder="e.g., ringer">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>...Show this Fatal Error Message</label>
+                        <textarea onkeyup="updateItem('rules', ${r.id}, 'message', this.value)" placeholder="e.g., Cardiac arrest due to hypovolemic shock.">${r.message}</textarea>
+                    </div>
+                    <button class="remove-btn" onclick="removeItem('rules', ${r.id})">Remove Rule</button>
+                `;
+                rulesC.appendChild(div);
+            });
+        }
+
+        function generateJSON() {
+            const mapActions = (arr) => arr.filter(i => i.idStr).map(i => ({
+                id: i.idStr, name: i.name, log_text: i.log || `Action executed: ${i.name}`
+            }));
+
+            const obj = {
+                patient_info: {
+                    name: document.getElementById('patient-name').value || "Unknown Patient",
+                    signalment: document.getElementById('patient-signalment').value || "",
+                    history: document.getElementById('patient-history').value || ""
+                },
+                button_categories: [
+                    { id: "exams", title: "🔬 Diagnostics", color: "#f57c00", actions: mapActions(state.exams) },
+                    { id: "fluids", title: "💧 Fluidotherapy", color: "#0277bd", actions: mapActions(state.fluids) },
+                    { id: "drugs", title: "💊 Medications", color: "#2e7d32", actions: mapActions(state.drugs) },
+                    { id: "other", title: "⚙️ Other Actions", color: "#8e44ad", actions: mapActions(state.others) }
+                ],
+                reports: {},
+                fatal_rules: [],
+                win_condition: {
+                    required_actions: document.getElementById('win-actions').value.split(',').map(s => s.trim()).filter(s => s),
+                    message: document.getElementById('win-message').value || "Scenario completed."
+                }
+            };
+
+            state.exams.forEach(ex => { if (ex.idStr) obj.reports[ex.idStr] = { title: ex.name, content: ex.content }; });
+            state.rules.forEach(r => {
+                if (r.trigger && r.required) obj.fatal_rules.push({ trigger_action: r.trigger, requires_previous_action: r.required, error_message: r.message });
+            });
+
+            obj.button_categories = obj.button_categories.filter(cat => cat.actions.length > 0);
+            document.getElementById('json-output').value = JSON.stringify(obj, null, 2);
+        }
+
+        function downloadJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(document.getElementById('json-output').value);
+            const downloadAnchorNode = document.createElement('a');
+            let filename = document.getElementById('patient-name').value.toLowerCase().replace(/[^a-z0-9]/g, '_') || "scenario";
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `${filename}_scenario_en.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+    </script>
+</body>
+</html>
