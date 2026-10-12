@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VetSim Super Editor</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --bg: #f8f9fa;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Sticky Header */
+        header {
+            position: sticky;
+            top: 0;
+            background: var(--primary);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        #dynamic-title {
+            color: #bdc3c7;
+            font-weight: normal;
+            margin-left: 10px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        nav a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Import Section */
+        .import-section {
+            background: #e8f4f8;
+            border: 2px dashed var(--secondary);
+            padding: 20px;
+            text-align: center;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .import-section input[type="file"] {
+            display: none;
+        }
+        
+        .btn-import {
+            background: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+
+        .btn-import:hover {
+            background: #1a252f;
+        }
+
+        /* Main Content Container */
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Section Cards */
+        section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            scroll-margin-top: 100px; /* Offset for sticky header */
+        }
+
+        section h2 {
+            margin-top: 0;
+            color: var(--secondary);
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        input[type="text"], input[type="number"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 100px;
+        }
+
+        .row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .col {
+            flex: 1;
+        }
+
+        /* Dynamic Item Builder (Cause/Effect) */
+        .dynamic-item {
+            background: #f1f2f6;
+            border-left: 5px solid var(--secondary);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .effect-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-top: 15px;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px dashed #ccc;
+        }
+
+        /* Buttons */
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: opacity 0.3s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .btn-add {
+            background: var(--secondary);
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-export {
+            background: var(--success);
+            color: white;
+            font-size: 1.2rem;
+            padding: 15px 30px;
+            width: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Super Editor <span id="dynamic-title">- New Scenario</span></h1>
+        </div>
+        <nav>
+            <a href="#info">1. Info</a>
+            <a href="#diagnostics">2. Diagnostics</a>
+            <a href="#actions">3. Actions & Effects</a>
+            <a href="#export">4. Export</a>
+        </nav>
+    </header>
+
+    <div class="container">
+
+        <!-- Import VetSim XML -->
+        <div class="import-section">
+            <h3 style="margin-top: 0; color: var(--primary);">Magic Import (Optional)</h3>
+            <p>Did your colleague send you the VetSim <b>main.xml</b> file? Upload it here to auto-fill the patient info and available actions!</p>
+            <label for="xml-upload" class="btn-import">📁 Upload VetSim XML File</label>
+            <input type="file" id="xml-upload" accept=".xml" onchange="importXML(event)">
+            <p id="import-status" style="color: var(--success); font-weight: bold; margin-top: 10px;"></p>
+        </div>
+
+        <!-- 1. Patient & Scenario Info -->
+        <section id="info">
+            <h2>1. Scenario & Patient Information</h2>
+            <div class="row">
+                <div class="col form-group">
+                    <label>Scenario Title</label>
+                    <input type="text" id="scenario-title" placeholder="e.g. Equine Colic - Large Colon Impaction" oninput="updateHeader()">
+                </div>
+            </div>
+            <div class="row">
+                <div class="col form-group">
+                    <label>Patient Name</label>
+                    <input type="text" id="patient-name" placeholder="e.g. Furia" oninput="updateHeader()">
+                </div>
+                <div class="col form-group">
+                    <label>Species / Breed</label>
+                    <input type="text" id="patient-species" placeholder="e.g. Equine, Arabian">
+                </div>
+                <div class="col form-group">
+                    <label>Weight (kg)</label>
+                    <input type="number" id="patient-weight" placeholder="e.g. 450">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Presenting Complaint / Initial History (Visible to Resident)</label>
+                <textarea id="patient-history" placeholder="Describe the initial clinical presentation..."></textarea>
+            </div>
+        </section>
+
+        <!-- Diagnostics (Medical Records) -->
+        <section id="diagnostics">
+            <h2>2. Diagnostics & Medical Records</h2>
+            <p><i>Add the diagnostic results the Resident can request. (VetSim XML does not manage these, so add them here).</i></p>
+            <div id="diagnostics-container">
+            <div id="diagnostics-container">
+                <!-- Diagnostic items will be added here -->
+            </div>
+            <button class="btn-add" onclick="addDiagnostic()">+ Add Diagnostic Test</button>
+        </section>
+
+        <!-- Actions & Effects (Drugs, Interventions) -->
+        <section id="actions">
+            <h2>3. Clinical Actions & Medications</h2>
+            <p><i>Define the buttons available on the tablet. If you imported an XML, these are auto-generated from VetSim Events!</i></p>
+            <div id="actions-container">
+                <!-- Action items will be added here -->
+            </div>
+            <button class="btn-add" onclick="addAction()">+ Add Clinical Action manually</button>
+        </section>
+
+        <!-- Export -->
+        <section id="export">
+            <h2>4. Generate Scenario File</h2>
+            <p>Click the button below to generate the <b>scenario.json</b> file for the Tablet Dashboard.</p>
+            <button class="btn-export" onclick="generateJSON()">⬇️ Download scenario.json</button>
+            <textarea id="json-preview" style="margin-top: 20px; height: 150px; background: #2c3e50; color: #64ffda; font-family: monospace;" readonly placeholder="JSON preview will appear here..."></textarea>
+        </section>
+
+    </div>
+
+    <script>
+        // Update Sticky Header Title dynamically
+        function updateHeader() {
+            const title = document.getElementById('scenario-title').value;
+            const name = document.getElementById('patient-name').value;
+            let headerText = "";
+            if(title) headerText += title;
+            if(name) headerText += (title ? " - " : "") + "Patient: " + name;
+            
+            document.getElementById('dynamic-title').innerText = headerText ? "- " + headerText : "- New Scenario";
+        }
+
+        // Add Diagnostic Test Block
+        function addDiagnostic() {
+            const container = document.getElementById('diagnostics-container');
+            const div = document.createElement('div');
+            div.className = 'dynamic-item';
+            div.innerHTML = `
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Test Name (Button Text)</label>
+                        <input type="text" placeholder="e.g. Abdominal Ultrasound" class="diag-name">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Text Report (Optional)</label>
+                        <textarea placeholder="Write the text report here..." class="diag-text"></textarea>
+                    </div>
+                    <div class="col form-group">
+                        <label>Attach Image Report (Optional)</label>
+                        <input type="file" accept="image/*,application/pdf" onchange="if(this.files[0]) this.parentElement.querySelector('.diag-img').value = 'images/' + this.files[0].name;" style="margin-bottom: 8px;">
+                        <input type="text" placeholder="Auto-filled path or type manually (e.g. images/rx.jpg)" class="diag-img">
+                        <small style="display: block; margin-top: 5px; color: #7f8c8d; line-height: 1.3;">Selecting a file will auto-fill the correct path. Remember to copy the actual files into the VetSim <b>images</b> folder (e.g. <i>WinVetSim/html/scenarios/.../images/</i>)!</small>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        // Add Action/Drug Block with Cause/Effect
+        function addAction(defaultName = "", defaultId = "") {
+            const container = document.getElementById('actions-container');
+            const div = document.createElement('div');
+            div.className = 'dynamic-item';
+            div.innerHTML = `
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Action/Drug Name (Tablet Button)</label>
+                        <input type="text" placeholder="e.g. Dobutamine 5mcg/kg/min" class="action-name" value="${defaultName}">
+                    </div>
+                    <div class="col form-group">
+                        <label>VetSim Event ID (Crucial for linking!)</label>
+                        <input type="text" placeholder="e.g. dobutamine_bolo" class="action-id" value="${defaultId}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Category</label>
+                        <select class="action-category">
+                            <option value="fluids">Fluids</option>
+                            <option value="drugs">Drugs</option>
+                            <option value="procedures">Procedures</option>
+                        </select>
+                    </div>
+                </div>
+                <button style="background: var(--danger); padding: 5px 10px; font-size: 0.8rem; color: white;" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        // XML IMPORT MAGIC
+        function importXML(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(text, "text/xml");
+
+                // 1. Try to read Patient Info (VetSim schema logic)
+                const titleNode = xmlDoc.querySelector('scenario title') || xmlDoc.querySelector('title');
+                if(titleNode) document.getElementById('scenario-title').value = titleNode.textContent;
+
+                const speciesNode = xmlDoc.querySelector('species');
+                if(speciesNode) document.getElementById('patient-species').value = speciesNode.textContent;
+
+                const complaintNode = xmlDoc.querySelector('complaint') || xmlDoc.querySelector('description');
+                if(complaintNode) document.getElementById('patient-history').value = complaintNode.textContent;
+
+                updateHeader();
+
+                // 2. Try to read Events (Triggers) to auto-create buttons
+                const events = xmlDoc.querySelectorAll('event');
+                if(events.length > 0) {
+                    document.getElementById('actions-container').innerHTML = ''; // Clear default ones
+                    let importedCount = 0;
+                    events.forEach(ev => {
+                        const id = ev.getAttribute('id');
+                        // Try to get title from attribute or from inner <title> tag
+                        const title = ev.getAttribute('title') || (ev.querySelector('title') ? ev.querySelector('title').textContent : id);
+                        
+                        // Ignore VetSim default system events (navigation)
+                        if(id && id !== 'advance' && id !== 'back' && id !== 'terminal') {
+                            addAction(title, id);
+                            importedCount++;
+                        }
+                    });
+                    document.getElementById('import-status').innerText = `✅ Success! Auto-filled info and imported ${importedCount} actions from XML.`;
+                } else {
+                    document.getElementById('import-status').innerText = `✅ XML loaded, but no custom events found.`;
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Generate JSON for the Dashboard
+        function generateJSON() {
+            const getVals = (selector) => Array.from(document.querySelectorAll(selector)).map(el => el.value);
+            
+            // Build Actions
+            const actionsDivs = document.querySelectorAll('#actions-container .dynamic-item');
+            let actionsList = [];
+            actionsDivs.forEach(div => {
+                actionsList.push({
+                    id: div.querySelector('.action-id').value || "unknown_id",
+                    name: div.querySelector('.action-name').value || "Unnamed Action",
+                    log_text: "Administered: " + (div.querySelector('.action-name').value || "Unnamed Action")
+                });
+            });
+
+            // Build Diagnostics
+            const diagDivs = document.querySelectorAll('#diagnostics-container .dynamic-item');
+            let reportsDict = {};
+            diagDivs.forEach((div, index) => {
+                const name = div.querySelector('.diag-name').value || "Exam";
+                const text = div.querySelector('.diag-text').value || "";
+                const img = div.querySelector('.diag-img').value || "";
+                let content = text;
+                if(img) content += `<br><img src='${img}' style='max-width:100%; border-radius:8px; margin-top:10px;'>`;
+                
+                reportsDict[`exam_${index}`] = { title: name, content: content };
+            });
+
+            const scenarioObj = {
+                patient_info: {
+                    name: document.getElementById('patient-name').value || "Unknown",
+                    signalment: document.getElementById('patient-species').value + " - " + document.getElementById('patient-weight').value + "kg",
+                    history: document.getElementById('patient-history').value
+                },
+                button_categories: [
+                    {
+                        id: "all_actions",
+                        title: "💉 Actions & Medications",
+                        color: "#0277bd",
+                        actions: actionsList
+                    }
+                ],
+                reports: reportsDict
+            };
+
+            const jsonString = JSON.stringify(scenarioObj, null, 2);
+            document.getElementById('json-preview').value = jsonString;
+
+            // Trigger Download
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
+            const downloadNode = document.createElement('a');
+            downloadNode.setAttribute("href", dataStr);
+            downloadNode.setAttribute("download", "scenario.json");
+            document.body.appendChild(downloadNode);
+            downloadNode.click();
+            downloadNode.remove();
+        }
+
+        // Pre-populate with one empty field for convenience
+        window.onload = function() {
+            addDiagnostic();
+            addAction();
+        };
+    </script>
+</body>
+</html>
