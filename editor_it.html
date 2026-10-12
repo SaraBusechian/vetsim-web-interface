@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VetSim - Costruttore di Scenari</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --bg-color: #ecf0f1;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --purple: #8e44ad;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text); margin: 0; padding: 20px; line-height: 1.6; }
+        header { background-color: var(--primary); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        h1 { margin: 0; font-size: 1.8rem; }
+        p.subtitle { margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.8; }
+        
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        @media (max-width: 1000px) { .container { grid-template-columns: 1fr; } }
+        
+        .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; font-size: 1.2rem; display: flex; align-items: center; justify-content: space-between; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; color: #555; }
+        input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 80px; }
+        
+        button { background-color: var(--secondary); color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: #2980b9; }
+        button.add-btn { background-color: var(--success); font-size: 0.85rem; margin-top: 10px; }
+        button.add-btn:hover { background-color: #27ae60; }
+        button.remove-btn { background-color: var(--danger); padding: 5px 10px; font-size: 0.8rem; margin-top: 10px; }
+        
+        .dynamic-item { background-color: #f8f9fa; border-left: 4px solid var(--secondary); padding: 15px; margin-bottom: 15px; border-radius: 4px; }
+        .dynamic-item.fluid-item { border-left-color: var(--secondary); }
+        .dynamic-item.drug-item { border-left-color: var(--success); }
+        .dynamic-item.other-item { border-left-color: var(--purple); }
+        .dynamic-item.rule-item { border-left-color: var(--danger); background-color: #fff5f5; }
+        
+        #json-output { width: 100%; height: 600px; background-color: #2c3e50; color: #64ffda; font-family: monospace; padding: 15px; border-radius: 4px; border: none; box-sizing: border-box; font-size: 0.9rem; white-space: pre; overflow-x: auto; }
+        .export-panel { position: sticky; top: 20px; }
+        
+        .help-text { font-size: 0.8rem; color: #7f8c8d; margin-top: 2px; display: block; }
+        .inline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>VetSim Costruttore di Scenari</h1>
+        <p class="subtitle">Compila i dati clinici. Il codice JSON per i tablet viene generato automaticamente in tempo reale.</p>
+    </header>
+
+    <div class="container">
+        <!-- PANNELLO SINISTRO: MODULO VISIVO -->
+        <div class="editor-panel">
+            
+            <div class="card">
+                <h2>1. Paziente e Anamnesi</h2>
+                <div class="form-group">
+                    <label>Nome Paziente</label>
+                    <input type="text" id="patient-name" placeholder="es. Furia" onkeyup="generateJSON()">
+                </div>
+                <div class="form-group">
+                    <label>Segnalamento</label>
+                    <input type="text" id="patient-signalment" placeholder="es. Sella Italiano, Femmina, 12 anni, 500kg" onkeyup="generateJSON()">
+                </div>
+                <div class="form-group">
+                    <label>Anamnesi</label>
+                    <textarea id="patient-history" placeholder="es. Riferita per segni di colica acuta insorti da 4 ore..." onkeyup="generateJSON()"></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>2. Diagnostica e Laboratorio (Referti)</h2>
+                <p class="help-text">Aggiungi gli esami richiedibili e il referto risultante (testo o immagine).</p>
+                <div id="exams-container"></div>
+                <button class="add-btn" onclick="addExam()">+ Aggiungi Esame / Lab</button>
+            </div>
+
+            <div class="card">
+                <h2>3. Fluidi e Farmaci</h2>
+                <p class="help-text">Definisci i pulsanti terapeutici disponibili sul tablet.</p>
+                
+                <h3 style="font-size: 1rem; color: var(--secondary); margin-top: 20px;">💧 Fluidoterapia</h3>
+                <div id="fluids-container"></div>
+                <button class="add-btn" style="background-color: var(--secondary);" onclick="addFluid()">+ Aggiungi Fluido</button>
+
+                <h3 style="font-size: 1rem; color: var(--success); margin-top: 30px;">💊 Farmaci</h3>
+                <div id="drugs-container"></div>
+                <button class="add-btn" onclick="addDrug()">+ Aggiungi Farmaco</button>
+            </div>
+
+            <div class="card">
+                <h2>4. Altre Azioni</h2>
+                <p class="help-text">Azioni personalizzate come chirurgia, esplorazione rettale, ecc.</p>
+                <div id="others-container"></div>
+                <button class="add-btn" style="background-color: var(--purple);" onclick="addOther()">+ Aggiungi Azione Extra</button>
+            </div>
+
+            <div class="card">
+                <h2>5. Errori Fatali e Regole (Bivi)</h2>
+                <p class="help-text">Definisci le conseguenze per errori critici (es. Chirurgia prima dei Fluidi = Morte).</p>
+                <div id="rules-container"></div>
+                <button class="add-btn" style="background-color: var(--danger);" onclick="addRule()">+ Aggiungi Regola Fatale</button>
+            </div>
+
+            <div class="card">
+                <h2>6. Condizione di Vittoria</h2>
+                <p class="help-text">Cosa deve fare lo studente per completare con successo il caso?</p>
+                <div class="form-group">
+                    <label>Azioni Richieste (ID separati da virgola)</label>
+                    <input type="text" id="win-actions" placeholder="es. ringer, dobutamina, chirurgia" onkeyup="generateJSON()">
+                </div>
+                <div class="form-group">
+                    <label>Messaggio di Successo</label>
+                    <textarea id="win-message" placeholder="es. Complimenti! Paziente stabilizzato e pronto per la chirurgia." onkeyup="generateJSON()"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- PANNELLO DESTRO: ESPORTAZIONE JSON -->
+        <div class="export-panel">
+            <div class="card">
+                <h2>📁 Scenario JSON Generato</h2>
+                <p class="help-text" style="margin-bottom: 10px;">Questo codice è pronto per l'App VetSim. Scaricalo e condividilo.</p>
+                <textarea id="json-output" readonly></textarea>
+                <button style="width: 100%; margin-top: 15px; background-color: var(--success); font-size: 1.1rem; padding: 15px;" onclick="downloadJSON()">
+                    ⬇️ Scarica Scenario (.json)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Stato Interno
+        let state = {
+            exams: [],
+            fluids: [],
+            drugs: [],
+            others: [],
+            rules: []
+        };
+
+        // Inizializza con elementi vuoti per comodità
+        window.onload = () => {
+            addExam();
+            addFluid();
+            addDrug();
+            addRule();
+            generateJSON();
+        };
+
+        // --- GENERATORE GENERICO FORM (Fluidi, Farmaci, Altro) ---
+        function createButtonForm(item, type, containerId, borderClass, labelText) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `dynamic-item ${borderClass}`;
+            div.innerHTML = `
+                <div class="inline-grid">
+                    <div class="form-group">
+                        <label>ID Azione <span class="help-text">es. '${type}_1' (Nessuno spazio)</span></label>
+                        <input type="text" value="${item.idStr}" onkeyup="updateItem('${type}', ${item.id}, 'idStr', this.value)" placeholder="es. ringer">
+                    </div>
+                    <div class="form-group">
+                        <label>Etichetta Pulsante</label>
+                        <input type="text" value="${item.name}" onkeyup="updateItem('${type}', ${item.id}, 'name', this.value)" placeholder="es. Ringer Lattato 5L">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Testo Registro (Log) <span class="help-text">Cosa appare nel log quando cliccato</span></label>
+                    <input type="text" value="${item.log}" onkeyup="updateItem('${type}', ${item.id}, 'log', this.value)" placeholder="es. Somministrati 5L di Ringer Lattato">
+                </div>
+                <button class="remove-btn" onclick="removeItem('${type}', ${item.id})">Rimuovi</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function updateItem(type, id, field, value) {
+            const item = state[type].find(i => i.id === id);
+            if (item) item[field] = value;
+            generateJSON();
+        }
+
+        function removeItem(type, id) {
+            state[type] = state[type].filter(i => i.id !== id);
+            renderAll();
+            generateJSON();
+        }
+
+        function addFluid() { state.fluids.push({ id: Date.now(), idStr: '', name: '', log: '' }); renderAll(); }
+        function addDrug() { state.drugs.push({ id: Date.now(), idStr: '', name: '', log: '' }); renderAll(); }
+        function addOther() { state.others.push({ id: Date.now(), idStr: '', name: '', log: '' }); renderAll(); }
+
+        function addExam() {
+            state.exams.push({ id: Date.now(), idStr: '', name: '', log: '', content: '' });
+            renderAll();
+        }
+
+        function addRule() {
+            state.rules.push({ id: Date.now(), trigger: '', required: '', message: '' });
+            renderAll();
+        }
+
+        function renderAll() {
+            // Esami
+            const examsC = document.getElementById('exams-container');
+            examsC.innerHTML = '';
+            state.exams.forEach(ex => {
+                const div = document.createElement('div');
+                div.className = 'dynamic-item';
+                div.innerHTML = `
+                    <div class="inline-grid">
+                        <div class="form-group">
+                            <label>ID Azione <span class="help-text">es. 'eco_addome'</span></label>
+                            <input type="text" value="${ex.idStr}" onkeyup="updateItem('exams', ${ex.id}, 'idStr', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>Etichetta Pulsante</label>
+                            <input type="text" value="${ex.name}" onkeyup="updateItem('exams', ${ex.id}, 'name', this.value)" placeholder="es. Ecografia TFAST">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Contenuto Referto / Immagine</label>
+                        <textarea onkeyup="updateItem('exams', ${ex.id}, 'content', this.value)" placeholder="es. Presenza di liquido... oppure <img src='immagini/eco.jpg'>">${ex.content}</textarea>
+                    </div>
+                    <button class="remove-btn" onclick="removeItem('exams', ${ex.id})">Rimuovi Esame</button>
+                `;
+                examsC.appendChild(div);
+            });
+
+            // Altri elementi
+            document.getElementById('fluids-container').innerHTML = '';
+            state.fluids.forEach(f => createButtonForm(f, 'fluids', 'fluids-container', 'fluid-item', 'Fluido'));
+            
+            document.getElementById('drugs-container').innerHTML = '';
+            state.drugs.forEach(d => createButtonForm(d, 'drugs', 'drugs-container', 'drug-item', 'Farmaco'));
+            
+            document.getElementById('others-container').innerHTML = '';
+            state.others.forEach(o => createButtonForm(o, 'others', 'others-container', 'other-item', 'Azione'));
+
+            // Regole
+            const rulesC = document.getElementById('rules-container');
+            rulesC.innerHTML = '';
+            state.rules.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'dynamic-item rule-item';
+                div.innerHTML = `
+                    <div class="inline-grid">
+                        <div class="form-group">
+                            <label>Se lo studente fa l'ID Azione...</label>
+                            <input type="text" value="${r.trigger}" onkeyup="updateItem('rules', ${r.id}, 'trigger', this.value)" placeholder="es. chirurgia">
+                        </div>
+                        <div class="form-group">
+                            <label>...SENZA aver fatto l'ID Azione...</label>
+                            <input type="text" value="${r.required}" onkeyup="updateItem('rules', ${r.id}, 'required', this.value)" placeholder="es. ringer">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>...Mostra questo Errore Fatale</label>
+                        <textarea onkeyup="updateItem('rules', ${r.id}, 'message', this.value)" placeholder="es. Arresto cardiaco per shock ipovolemico in anestesia.">${r.message}</textarea>
+                    </div>
+                    <button class="remove-btn" onclick="removeItem('rules', ${r.id})">Rimuovi Regola</button>
+                `;
+                rulesC.appendChild(div);
+            });
+        }
+
+        function generateJSON() {
+            // Nota: Le CHIAVI JSON (patient_info, etc.) rimangono in inglese per mantenere 
+            // la compatibilità con i tablet stranieri. Cambiano solo i valori e le etichette.
+            
+            const mapActions = (arr) => arr.filter(i => i.idStr).map(i => ({
+                id: i.idStr, 
+                name: i.name, 
+                log_text: i.log || `Azione eseguita: ${i.name}`
+            }));
+
+            const obj = {
+                patient_info: {
+                    name: document.getElementById('patient-name').value || "Paziente Sconosciuto",
+                    signalment: document.getElementById('patient-signalment').value || "",
+                    history: document.getElementById('patient-history').value || ""
+                },
+                button_categories: [
+                    { 
+                        id: "exams", 
+                        title: "🔬 Diagnostica", 
+                        color: "#f57c00", 
+                        actions: mapActions(state.exams)
+                    },
+                    { 
+                        id: "fluids", 
+                        title: "💧 Fluidoterapia", 
+                        color: "#0277bd", 
+                        actions: mapActions(state.fluids)
+                    },
+                    { 
+                        id: "drugs", 
+                        title: "💊 Farmaci", 
+                        color: "#2e7d32", 
+                        actions: mapActions(state.drugs)
+                    },
+                    { 
+                        id: "other", 
+                        title: "⚙️ Altre Azioni", 
+                        color: "#8e44ad", 
+                        actions: mapActions(state.others)
+                    }
+                ],
+                reports: {},
+                fatal_rules: [],
+                win_condition: {
+                    required_actions: document.getElementById('win-actions').value.split(',').map(s => s.trim()).filter(s => s),
+                    message: document.getElementById('win-message').value || "Scenario completato."
+                }
+            };
+
+            // Popola i referti
+            state.exams.forEach(ex => {
+                if (ex.idStr) {
+                    obj.reports[ex.idStr] = { title: ex.name, content: ex.content };
+                }
+            });
+
+            // Popola le regole fatali
+            state.rules.forEach(r => {
+                if (r.trigger && r.required) {
+                    obj.fatal_rules.push({
+                        trigger_action: r.trigger,
+                        requires_previous_action: r.required,
+                        error_message: r.message
+                    });
+                }
+            });
+
+            // Pulisce categorie vuote
+            obj.button_categories = obj.button_categories.filter(cat => cat.actions.length > 0);
+
+            // Mostra in textarea
+            document.getElementById('json-output').value = JSON.stringify(obj, null, 2);
+        }
+
+        function downloadJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(document.getElementById('json-output').value);
+            const downloadAnchorNode = document.createElement('a');
+            let filename = document.getElementById('patient-name').value.toLowerCase().replace(/[^a-z0-9]/g, '_') || "scenario";
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `${filename}_scenario_it.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+    </script>
+</body>
+</html>
