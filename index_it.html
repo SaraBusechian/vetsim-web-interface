@@ -10,6 +10,8 @@
             --bg-color: #f5f7fa;
             --card-bg: #ffffff;
             --text: #333333;
+            --danger: #ff5252;
+            --success: #69f0ae;
         }
 
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text); margin: 0; padding: 20px; }
@@ -35,13 +37,13 @@
         #log-container { height: 250px; overflow-y: auto; background: #263238; color: #eceff1; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.9rem; }
         .log-entry { margin-bottom: 8px; border-bottom: 1px solid #37474f; padding-bottom: 4px; }
         .timestamp { color: #64ffda; margin-right: 10px; }
-        .log-alarm { color: #ff5252; font-weight: bold; }
-        .log-success { color: #69f0ae; font-weight: bold; }
+        .log-alarm { color: var(--danger); font-weight: bold; }
+        .log-success { color: var(--success); font-weight: bold; }
         .log-system { color: #ffd54f; }
         
         .clear-btn { background-color: transparent; color: #b0bec5; border: 1px solid #b0bec5; padding: 5px 10px; font-size: 0.8rem; float: right; margin-top: -30px; }
         
-        /* Modal Style for custom alerts */
+        /* Stile Modal per avvisi personalizzati */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
         .modal-box { background: white; padding: 25px; border-radius: 12px; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-title { font-size: 1.3rem; margin-top: 0; }
@@ -57,7 +59,6 @@
     </header>
 
     <div class="grid-container">
-        <!-- L'interfaccia clinica sarà generata qui dinamicamente -->
         <div class="clinical-panel" id="clinical-panel"></div>
 
         <div class="log-panel">
@@ -76,6 +77,7 @@
         </div>
     </div>
 
+    <!-- Modale per gli avvisi -->
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-box">
             <h3 id="modal-title" class="modal-title">Avviso</h3>
@@ -85,7 +87,7 @@
     </div>
 
     <script>
-        // --- SIMULAZIONE CARICAMENTO SCENARIO (Compatibile con l'editor) ---
+        // DATI DELLO SCENARIO DI TEST (Da sostituire in futuro con il caricamento da file JSON)
         const currentScenario = {
             "patient_info": {
                 "name": "Furia",
@@ -143,7 +145,6 @@
             }
         };
 
-        // --- MOTORE DELL'APPLICAZIONE ---
         let executedActions = [];
         let scenarioFailed = false;
 
@@ -201,7 +202,7 @@
 
             logEvent(logText, "normal");
 
-            // Controllo Regole Fatali (I Bivi di simulazione)
+            // Controllo Regole Fatali
             const violatedRule = currentScenario.fatal_rules.find(r => r.trigger_action === actionId && !executedActions.includes(r.requires_previous_action));
             
             if (violatedRule) {
@@ -212,10 +213,20 @@
                 return;
             }
 
-            // Azione valida, la salvo in memoria
+            // Azione valida, salvata in memoria
             executedActions.push(actionId);
 
-            // Gestione della Diagnostica e sblocco Referti
+            // --- INVIO COMANDO AL SERVER NODE.JS ---
+            fetch('/api/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actionId: actionId })
+            })
+            .then(response => console.log("Comando inviato al server! Attivazione VetSim in corso..."))
+            .catch(error => console.warn("Modalità anteprima locale. Server non raggiungibile:", error));
+            // ---------------------------------------
+
+            // Gestione della Diagnostica e referti
             if (currentScenario.reports[actionId]) {
                 setTimeout(() => {
                     if(!scenarioFailed) {
@@ -225,7 +236,7 @@
                 }, 1500); 
             }
 
-            // Controllo Condizione di Vittoria
+            // Controllo Condizione Vittoria
             const win = currentScenario.win_condition.required_actions.every(act => executedActions.includes(act));
             if (win) {
                 setTimeout(() => endScenario(currentScenario.win_condition.message, true), 2000);
@@ -261,7 +272,6 @@
             scenarioFailed = !isVictory;
             logEvent(isVictory ? "[SCENARIO COMPLETATO CON SUCCESSO]" : "[SCENARIO FALLITO]", isVictory ? "success" : "alarm");
             
-            // Disabilita tutti i pulsanti eccetto il Riavvio
             document.querySelectorAll('button').forEach(btn => {
                 if(!btn.classList.contains('clear-btn') && !btn.classList.contains('modal-btn')) btn.disabled = true;
             });
