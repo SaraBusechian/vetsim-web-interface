@@ -5,68 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VetSim - Dashboard Clinica</title>
     <style>
-        :root {
-            --primary: #1565c0;
-            --bg-color: #f5f7fa;
-            --card-bg: #ffffff;
-            --text: #333333;
-            --danger: #ff5252;
-            --success: #69f0ae;
-        }
-
+        :root { --primary: #1565c0; --bg-color: #f5f7fa; --card-bg: #ffffff; --text: #333333; --danger: #ff5252; --success: #69f0ae; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text); margin: 0; padding: 20px; }
         header { background-color: var(--primary); color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
         header h1 { margin: 0; font-size: 1.5rem; }
         .patient-info { background-color: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-weight: bold; }
-        
         .grid-container { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
         @media (max-width: 900px) { .grid-container { grid-template-columns: 1fr; } }
-        
         .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
         h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; font-size: 1.2rem; }
-        
         .btn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
         button { padding: 12px 10px; font-size: 0.95rem; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; transition: transform 0.1s, opacity 0.2s; }
         button:active { transform: scale(0.95); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-
         #records-container { max-height: 400px; overflow-y: auto; margin-bottom: 10px; }
         .report-item { background-color: #e3f2fd; border-left: 4px solid var(--primary); padding: 12px; margin-bottom: 10px; border-radius: 4px; font-size: 0.95rem; }
         .report-title { font-weight: bold; color: var(--primary); margin-bottom: 5px; display: block; }
-        
         #log-container { height: 250px; overflow-y: auto; background: #263238; color: #eceff1; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.9rem; }
         .log-entry { margin-bottom: 8px; border-bottom: 1px solid #37474f; padding-bottom: 4px; }
         .timestamp { color: #64ffda; margin-right: 10px; }
         .log-alarm { color: var(--danger); font-weight: bold; }
         .log-success { color: var(--success); font-weight: bold; }
         .log-system { color: #ffd54f; }
-        
         .clear-btn { background-color: transparent; color: #b0bec5; border: 1px solid #b0bec5; padding: 5px 10px; font-size: 0.8rem; float: right; margin-top: -30px; }
-        
-        /* Stile Modal per avvisi personalizzati */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
         .modal-box { background: white; padding: 25px; border-radius: 12px; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-title { font-size: 1.3rem; margin-top: 0; }
         .modal-msg { font-size: 1rem; color: #555; margin-bottom: 20px; line-height: 1.5; }
-        .modal-btn { background-color: var(--primary); padding: 10px 25px; font-size: 1rem; }
+        .modal-btn { background-color: var(--primary); padding: 10px 25px; font-size: 1rem; color: white; border: none; border-radius: 6px; cursor: pointer; }
     </style>
 </head>
 <body>
-
     <header>
         <h1>VetSim - Dashboard Clinica</h1>
         <div class="patient-info" id="patient-header">Caricamento paziente...</div>
     </header>
-
     <div class="grid-container">
         <div class="clinical-panel" id="clinical-panel"></div>
-
         <div class="log-panel">
             <div class="card">
                 <h2>📁 Cartella Clinica</h2>
                 <div id="records-container"></div>
             </div>
-
             <div class="card" style="background-color: #37474f; color: white;">
                 <h2 style="color: white; border-bottom-color: #546e7a;">
                     📋 Registro Eventi
@@ -76,82 +56,36 @@
             </div>
         </div>
     </div>
-
-    <!-- Modale per gli avvisi -->
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-box">
             <h3 id="modal-title" class="modal-title">Avviso</h3>
-            <p id="modal-msg" class="modal-msg">Messaggio di test.</p>
+            <p id="modal-msg" class="modal-msg">Messaggio.</p>
             <button class="modal-btn" onclick="document.getElementById('custom-modal').style.display='none'">Chiudi</button>
         </div>
     </div>
 
     <script>
-        // DATI DELLO SCENARIO DI TEST (Da sostituire in futuro con il caricamento da file JSON)
-        const currentScenario = {
-            "patient_info": {
-                "name": "Furia",
-                "signalment": "Sella Italiano, Femmina, 12 anni, 500kg",
-                "history": "Riferita per segni di colica acuta insorti da 4 ore."
-            },
-            "button_categories": [
-                {
-                    "id": "exams",
-                    "title": "🔬 Diagnostica",
-                    "color": "#f57c00",
-                    "actions": [
-                        { "id": "abg", "name": "Emogasanalisi", "log_text": "Richiesta Emogasanalisi (EGA)" },
-                        { "id": "tfast", "name": "Ecografia TFAST", "log_text": "Eseguita Ecografia TFAST" },
-                        { "id": "xray", "name": "RX Addome (Sala)", "log_text": "Paziente spostato in sala radiologica" }
-                    ]
-                },
-                {
-                    "id": "fluids",
-                    "title": "💧 Fluidoterapia",
-                    "color": "#0277bd",
-                    "actions": [
-                        { "id": "ringer", "name": "Ringer Lattato (5L)", "log_text": "Somministrato bolo 5L Ringer Lattato" }
-                    ]
-                },
-                {
-                    "id": "drugs",
-                    "title": "💊 Farmaci",
-                    "color": "#2e7d32",
-                    "actions": [
-                        { "id": "dobutamine", "name": "Dobutamina (CRI)", "log_text": "Iniziata infusione Dobutamina" }
-                    ]
-                }
-            ],
-            "reports": {
-                "abg": { "title": "Referto EGA", "content": "pH: 7.31 | pCO2: 45 | pO2: 85 | HCO3-: 22" },
-                "tfast": { "title": "Referto Ecografico", "content": "<img src='https://placehold.co/600x300/e0e0e0/555555?text=Immagine+Ecografia' style='max-width:100%'>" },
-                "xray": { "title": "Referto Radiologico", "content": "Grave distensione gassosa del grande colon. Nessun volvolo evidente." }
-            },
-            "fatal_rules": [
-                {
-                    "trigger_action": "xray",
-                    "requires_previous_action": "ringer",
-                    "error_message": "ERRORE FATALE: Spostamento di paziente ipovolemico in radiologia prima della stabilizzazione. Arresto cardiaco."
-                },
-                {
-                    "trigger_action": "dobutamine",
-                    "requires_previous_action": "ringer",
-                    "error_message": "ERRORE CRITICO: Somministrazione di inotropo a paziente vuoto (ipovolemico). Tachicardia ventricolare."
-                }
-            ],
-            "win_condition": {
-                "required_actions": ["ringer", "dobutamine"],
-                "message": "SUCCESSO: Stabilizzazione emodinamica raggiunta. Il paziente è pronto per la chirurgia!"
-            }
-        };
-
+        let currentScenario = null;
         let executedActions = [];
         let scenarioFailed = false;
 
+        // MAGIA: Ora legge il file scenario.json automaticamente!
         window.onload = () => {
-            buildInterface(currentScenario);
-            logEvent("[SISTEMA] Paziente ricoverato.", "system");
-            addReport("Segnalamento & Anamnesi", currentScenario.patient_info.signalment + "<br><br>" + currentScenario.patient_info.history);
+            fetch('scenario.json')
+                .then(response => {
+                    if (!response.ok) throw new Error("File scenario.json non trovato!");
+                    return response.json();
+                })
+                .then(data => {
+                    currentScenario = data;
+                    buildInterface(currentScenario);
+                    logEvent("[SISTEMA] Paziente ricoverato.", "system");
+                    addReport("Segnalamento & Anamnesi", currentScenario.patient_info.signalment + "<br><br>" + currentScenario.patient_info.history);
+                })
+                .catch(error => {
+                    document.getElementById('patient-header').innerText = "Errore: scenario.json mancante";
+                    logEvent("Errore: Impossibile caricare il file scenario.json. Assicurati che si trovi nella stessa cartella.", "alarm");
+                });
         };
 
         function showModal(title, message, isError = false) {
@@ -164,15 +98,15 @@
         }
 
         function buildInterface(scenario) {
-            document.getElementById('patient-header').innerText = `🐴 Paziente: ${scenario.patient_info.name}`;
-            
+            document.getElementById('patient-header').innerText = `Paziente: ${scenario.patient_info.name}`;
             const panel = document.getElementById('clinical-panel');
             panel.innerHTML = ''; 
+
+            if (!scenario.button_categories) return;
 
             scenario.button_categories.forEach(category => {
                 const card = document.createElement('div');
                 card.className = 'card';
-                
                 const title = document.createElement('h2');
                 title.innerText = category.title;
                 card.appendChild(title);
@@ -183,7 +117,7 @@
                 category.actions.forEach(action => {
                     const btn = document.createElement('button');
                     btn.innerText = action.name;
-                    btn.style.backgroundColor = category.color;
+                    btn.style.backgroundColor = category.color || '#3498db';
                     btn.onclick = () => executeAction(action.id, action.log_text);
                     btnGrid.appendChild(btn);
                 });
@@ -196,38 +130,38 @@
         function executeAction(actionId, logText) {
             if (scenarioFailed) return;
             if (executedActions.includes(actionId)) {
-                showModal("Azione Duplicata", "Questa azione è già stata richiesta o è in corso.");
-                return;
+                showModal("Azione Duplicata", "Questa azione è già stata eseguita."); return;
             }
 
-            logEvent(logText, "normal");
+            logEvent(logText || `Azione eseguita: ${actionId}`, "normal");
 
-            // Controllo Regole Fatali
-            const violatedRule = currentScenario.fatal_rules.find(r => r.trigger_action === actionId && !executedActions.includes(r.requires_previous_action));
-            
-            if (violatedRule) {
-                setTimeout(() => {
-                    logEvent(`!!! [ALLARME] ${violatedRule.error_message}`, "alarm");
-                    endScenario(violatedRule.error_message, false);
-                }, 1000);
-                return;
+            // Controllo Regole Fatali (se esistono)
+            if (currentScenario.fatal_rules) {
+                const violatedRule = currentScenario.fatal_rules.find(r => r.trigger_action === actionId && !executedActions.includes(r.requires_previous_action));
+                if (violatedRule) {
+                    setTimeout(() => {
+                        logEvent(`!!! [ALLARME] ${violatedRule.error_message}`, "alarm");
+                        endScenario(violatedRule.error_message, false);
+                    }, 1000);
+                    return;
+                }
             }
 
-            // Azione valida, salvata in memoria
             executedActions.push(actionId);
 
-            // --- INVIO COMANDO AL SERVER NODE.JS ---
+            // --- CHIAMATA VERA AL SERVER NODE.JS ---
             fetch('/api/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ actionId: actionId })
             })
-            .then(response => console.log("Comando inviato al server! Attivazione VetSim in corso..."))
-            .catch(error => console.warn("Modalità anteprima locale. Server non raggiungibile:", error));
+            .then(res => res.json())
+            .then(data => console.log("Successo:", data))
+            .catch(err => console.error("Errore server:", err));
             // ---------------------------------------
 
-            // Gestione della Diagnostica e referti
-            if (currentScenario.reports[actionId]) {
+            // Referti Diagnostici
+            if (currentScenario.reports && currentScenario.reports[actionId]) {
                 setTimeout(() => {
                     if(!scenarioFailed) {
                         logEvent(`[SISTEMA] Nuovo Referto: ${currentScenario.reports[actionId].title}`, "system");
@@ -236,10 +170,10 @@
                 }, 1500); 
             }
 
-            // Controllo Condizione Vittoria
-            const win = currentScenario.win_condition.required_actions.every(act => executedActions.includes(act));
-            if (win) {
-                setTimeout(() => endScenario(currentScenario.win_condition.message, true), 2000);
+            // Condizione Vittoria
+            if (currentScenario.win_condition && currentScenario.win_condition.required_actions.length > 0) {
+                const win = currentScenario.win_condition.required_actions.every(act => executedActions.includes(act));
+                if (win) setTimeout(() => endScenario(currentScenario.win_condition.message, true), 2000);
             }
         }
 
@@ -270,15 +204,12 @@
 
         function endScenario(message, isVictory) {
             scenarioFailed = !isVictory;
-            logEvent(isVictory ? "[SCENARIO COMPLETATO CON SUCCESSO]" : "[SCENARIO FALLITO]", isVictory ? "success" : "alarm");
+            logEvent(isVictory ? "[SCENARIO COMPLETATO]" : "[SCENARIO FALLITO]", isVictory ? "success" : "alarm");
             
             document.querySelectorAll('button').forEach(btn => {
                 if(!btn.classList.contains('clear-btn') && !btn.classList.contains('modal-btn')) btn.disabled = true;
             });
-            
-            setTimeout(() => {
-                showModal(isVictory ? "Caso Risolto!" : "Paziente Deceduto", message, !isVictory);
-            }, 500);
+            setTimeout(() => showModal(isVictory ? "Caso Risolto!" : "Paziente Deceduto", message, !isVictory), 500);
         }
     </script>
 </body>
