@@ -77,6 +77,7 @@
         </div>
     </div>
 
+    <!-- Modal for custom alerts -->
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-box">
             <h3 id="modal-title" class="modal-title">Alert</h3>
@@ -86,6 +87,7 @@
     </div>
 
     <script>
+        // MOCK SCENARIO DATA (To be replaced by loading the actual JSON file in the future)
         const currentScenario = {
             "patient_info": {
                 "name": "Furia",
@@ -208,8 +210,20 @@
                 return;
             }
 
+            // Valid action, save to memory
             executedActions.push(actionId);
 
+            // --- SEND COMMAND TO NODE.JS SERVER ---
+            fetch('/api/trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actionId: actionId })
+            })
+            .then(response => console.log("Command sent to server! Triggering VetSim..."))
+            .catch(error => console.warn("Running in local preview mode. Server unreachable:", error));
+            // --------------------------------------
+
+            // Handle Diagnostics / Reports
             if (currentScenario.reports[actionId]) {
                 setTimeout(() => {
                     if(!scenarioFailed) {
@@ -219,6 +233,7 @@
                 }, 1500); 
             }
 
+            // Check Win Condition
             const win = currentScenario.win_condition.required_actions.every(act => executedActions.includes(act));
             if (win) {
                 setTimeout(() => endScenario(currentScenario.win_condition.message, true), 2000);
