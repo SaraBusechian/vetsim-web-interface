@@ -28,11 +28,14 @@
         .log-success { color: var(--success); font-weight: bold; }
         .log-system { color: #ffd54f; }
         .clear-btn { background-color: transparent; color: #b0bec5; border: 1px solid #b0bec5; padding: 5px 10px; font-size: 0.8rem; float: right; margin-top: -30px; }
+        
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
         .modal-box { background: white; padding: 25px; border-radius: 12px; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-title { font-size: 1.3rem; margin-top: 0; }
         .modal-msg { font-size: 1rem; color: #555; margin-bottom: 20px; line-height: 1.5; }
-        .modal-btn { background-color: var(--primary); padding: 10px 25px; font-size: 1rem; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .modal-btn { background-color: var(--primary); padding: 10px 25px; font-size: 1rem; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 5px; }
+        
+        #download-log-btn { display: none; background-color: #f39c12; }
     </style>
 </head>
 <body>
@@ -56,11 +59,13 @@
             </div>
         </div>
     </div>
+    
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-box">
             <h3 id="modal-title" class="modal-title">Avviso</h3>
             <p id="modal-msg" class="modal-msg">Messaggio.</p>
-            <button class="modal-btn" onclick="document.getElementById('custom-modal').style.display='none'">Chiudi</button>
+            <button class="modal-btn" id="modal-close-btn" onclick="document.getElementById('custom-modal').style.display='none'">Inizia / Chiudi</button>
+            <button class="modal-btn" id="download-log-btn" onclick="downloadLog()">📥 Scarica Report PDF (TXT)</button>
         </div>
     </div>
 
@@ -68,8 +73,8 @@
         let currentScenario = null;
         let executedActions = [];
         let scenarioFailed = false;
+        let logHistory = []; // Salva la storia per il report finale
 
-        // MAGIA: Ora legge il file scenario.json automaticamente!
         window.onload = () => {
             fetch('scenario.json')
                 .then(response => {
@@ -80,7 +85,11 @@
                     currentScenario = data;
                     buildInterface(currentScenario);
                     logEvent("[SISTEMA] Paziente ricoverato.", "system");
-                    addReport("Segnalamento & Anamnesi", currentScenario.patient_info.signalment + "<br><br>" + currentScenario.patient_info.history);
+                    addReport("Segnalamento", currentScenario.patient_info.signalment);
+                    
+                    // NUOVO: Pop-up iniziale di Benvenuto con le Istruzioni
+                    showModal(`Nuovo Caso: ${currentScenario.patient_info.name}`, 
+                              `Leggi attentamente l'anamnesi e inizia il trattamento:\n\n${currentScenario.patient_info.history}`, false);
                 })
                 .catch(error => {
                     document.getElementById('patient-header').innerText = "Errore: scenario.json mancante";
@@ -88,12 +97,15 @@
                 });
         };
 
-        function showModal(title, message, isError = false) {
+        function showModal(title, message, isError = false, showDownload = false) {
             const modal = document.getElementById('custom-modal');
             const titleEl = document.getElementById('modal-title');
             titleEl.innerText = title;
             titleEl.style.color = isError ? "var(--danger)" : "var(--success)";
             document.getElementById('modal-msg').innerText = message;
+            
+            // Mostra il pulsante di download solo alla fine dello scenario
+            document.getElementById('download-log-btn').style.display = showDownload ? 'inline-block' : 'none';
             modal.style.display = 'flex';
         }
 
@@ -130,12 +142,11 @@
         function executeAction(actionId, logText) {
             if (scenarioFailed) return;
             if (executedActions.includes(actionId)) {
-                showModal("Azione Duplicata", "Questa azione è già stata eseguita."); return;
+                logEvent(`[SISTEMA] Azione già richiesta in precedenza: ${actionId}`, "alarm"); return;
             }
 
             logEvent(logText || `Azione eseguita: ${actionId}`, "normal");
 
-            // Controllo Regole Fatali (se esistono)
             if (currentScenario.fatal_rules) {
                 const violatedRule = currentScenario.fatal_rules.find(r => r.trigger_action === actionId && !executedActions.includes(r.requires_previous_action));
                 if (violatedRule) {
@@ -149,16 +160,12 @@
 
             executedActions.push(actionId);
 
-            // --- CHIAMATA VERA AL SERVER NODE.JS ---
+            // CHIAMATA VERA AL SERVER NODE.JS
             fetch('/api/trigger', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ actionId: actionId })
-            })
-            .then(res => res.json())
-            .then(data => console.log("Successo:", data))
-            .catch(err => console.error("Errore server:", err));
-            // ---------------------------------------
+            }).catch(err => console.error("Server non raggiungibile (modalità offline)."));
 
             // Referti Diagnostici
             if (currentScenario.reports && currentScenario.reports[actionId]) {
@@ -188,6 +195,10 @@
 
         function logEvent(text, type) {
             const time = new Date().toLocaleTimeString('it-IT', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            // Salvataggio nella memoria interna per l'esportazione
+            logHistory.push(`[${time}] ${text}`);
+
             const container = document.getElementById('log-container');
             const row = document.createElement('div');
             row.className = 'log-entry';
@@ -209,7 +220,35 @@
             document.querySelectorAll('button').forEach(btn => {
                 if(!btn.classList.contains('clear-btn') && !btn.classList.contains('modal-btn')) btn.disabled = true;
             });
-            setTimeout(() => showModal(isVictory ? "Caso Risolto!" : "Paziente Deceduto", message, !isVictory), 500);
+            
+            // Richiama il modale passando TRUE come ultimo parametro per far apparire il bottone di Download
+            setTimeout(() => showModal(isVictory ? "Caso Risolto!" : "Paziente Deceduto", message, !isVictory, true), 500);
+        }
+
+        // NUOVO: Funzione per esportare il log delle attività
+        function downloadLog() {
+            let logContent = `REPORT CLINICO VETSIM\n`;
+            logContent += `===============================\n`;
+            logContent += `Paziente: ${currentScenario.patient_info.name}\n`;
+            logContent += `Esito: ${scenarioFailed ? "FALLITO (Decesso)" : "SUCCESSO (Stabilizzato)"}\n`;
+            logContent += `Data: ${new Date().toLocaleDateString('it-IT')}\n`;
+            logContent += `===============================\n\n`;
+            logContent += `REGISTRO CRONOLOGICO EVENTI:\n`;
+            
+            logHistory.forEach(entry => {
+                logContent += `${entry}\n`;
+            });
+
+            // Crea il file di testo e forza il download sul tablet
+            const blob = new Blob([logContent], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Report_Clinico_${currentScenario.patient_info.name.replace(/\s+/g, '_')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>
